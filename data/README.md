@@ -1,7 +1,7 @@
 # COVID-19 Open Source Cough Dataset
 
 <p align="center">
-  <img width="300" src="http://virufy.org/images/logo.png">
+  <img width="300" src="https://virufy.org/img/logos/virufy-logo.svg">
 </p>
 
 ## Why?
