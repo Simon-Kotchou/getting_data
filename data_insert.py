@@ -67,23 +67,7 @@ def main():
     
     conn.commit()
     print("Data Committed to DB successfully!")
-    '''
-    at this point we should have datasourceid and datasourcename
-    now we can walk down a list of files and load them
-    i don't know how to do the stuff in <>, so that's conceptual, not code
-    
-    <for each row of file info>
-        fileid=getid(
-        filename=datasourceid + "/" + fileid + "." + row.fileextension
-        <upload file to blob storage as filename>
-        sql="insert into sound_file (id, size_bytes, file_duration, checksum, blob_storage_url) values (%s, %s, %s, %s, %s)"
-        vals=(fileid, row.size, row.duration, row.checksum, filename)
-        cursor.execute(sql, vals)
-        conn.commit()
-    '''
-    
-    
-        
+      
         
     finish()
 
