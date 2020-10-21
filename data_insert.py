@@ -104,9 +104,9 @@ def is_cough():
     Returns
     -------
     cough : int
-        0 == not cough data, 1 == cough data
+        0 == not cough data, 1 == cough data, NULL = unkown
     is_covid : int
-        0 == not covid data, 1 == covid data
+        0 == not covid data, 1 == covid data, NULL = unknown
     is_strong : int
         0 == not strong label data, 1 == strong label data
 
@@ -116,19 +116,23 @@ def is_cough():
     is_strong = 0
     
     # user_in = input("Are all the files in the directory the same classification? IE ALL strong labeled, ALL cough, etc.  ")
-    user_in = input("Is this a strong labeled data set? (y/n) ")
+    user_in = input("Is this a strong labeled data set IF UNKNOWN -> u? (y/n/u) ")
     
     if user_in.lower() == 'y':
         is_strong = 1
     
-    user_in = input("Is this a cough data set? (y/n) ")
+    user_in = input("Is this a cough data set IF UNKNOWN -> u? (y/n/u) ")
     
     if user_in.lower() == 'y':
         cough = 1
+    else if user_in.lower() == 'u':
+        cough = NULL
 
     covid_cough = input("Are the coughs covid POSITIVE? (y/n) ")
     if covid_cough.lower() == 'y':
         is_covid = 1
+    else if user_in.lower() == 'u':
+        is_covid = NULL
         
     return (cough, is_covid, is_strong)
 
