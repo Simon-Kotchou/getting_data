@@ -9,6 +9,21 @@ import mysql.connector
 import os
 import audio_metadata
 from mysql.connector import Error
+import os, uuid
+from azure.storage.blob import BlobServiceClient, BlobClient, ContainerClient, __version__
+
+
+import os, uuid
+from azure.storage.blob import BlobServiceClient, BlobClient, ContainerClient, __version__
+
+#############################
+# GLOBAL VARS
+
+CONTAINER_NAME = "audiodata"
+CONNECTION_STR = "DefaultEndpointsProtocol=https;AccountName=ahgeneralstorage;AccountKey=Qskw5VS7/fmFv1UTu77h42ufFGsanvoiXBHRzvuimjA1o2cS9bmvdy7ZK4zfzFUY/fI2lmUJ7p9maIEGj21oBg==;EndpointSuffix=core.windows.net"
+
+#############################
+
 
 def main():
     '''
@@ -71,6 +86,7 @@ def main():
         
     finish()
 
+
 def audio_files_loop(file_directory, parent_id=-1):
     '''
     Parameters
@@ -85,13 +101,19 @@ def audio_files_loop(file_directory, parent_id=-1):
     None.
 
     '''
+    
     sql="insert into sound_file (id, data_source_id, size_bytes, file_duration, checksum, blob_storage_url, sample_rate, is_cough, is_covid, is_strong) values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
     cough_tuple = is_cough()
+    
     for file in os.listdir(file_directory):
         file_name = os.path.join(file_directory, file)
         file_tuple = collect_file_meta_data(file_name, parent_id)
         total_tuple = file_tuple + cough_tuple
         cursor.execute(sql, total_tuple)
+        store_in_blob(file_name, total_tuple[5])
+        
+        print("**Data Stored Into Blob**")
+        
         try:
             conn.commit()
         except mysql.connector.Error as error:
@@ -125,16 +147,17 @@ def is_cough():
     
     if user_in.lower() == 'y':
         cough = 1
-    else if user_in.lower() == 'u':
-        cough = NULL
+    elif user_in.lower() == 'u':
+        cough = None
 
     covid_cough = input("Are the coughs covid POSITIVE? (y/n) ")
     if covid_cough.lower() == 'y':
         is_covid = 1
-    else if user_in.lower() == 'u':
-        is_covid = NULL
+    elif user_in.lower() == 'u':
+        is_covid = None
         
     return (cough, is_covid, is_strong)
+
 
 def collect_file_meta_data(filename, parent_id=-1):
   '''
@@ -147,7 +170,6 @@ def collect_file_meta_data(filename, parent_id=-1):
   file_id = getid()
   file_extension = os.path.splitext(filename)
   blob_storage_url = str(str(parent_id) + "/" + str(file_id) + file_extension[1])
-  # TODO STORE IN BLOB STORAGE!!!!!!!!!
 
   # Using the audio_metadata import
   metadata = audio_metadata.load(filename)
@@ -161,6 +183,28 @@ def collect_file_meta_data(filename, parent_id=-1):
   
   return (file_id, parent_id, size_bytes, file_duration, checksum, blob_storage_url, sample_rate)
 
+
+def store_in_blob(local_file_path, blob_storage_url):
+    
+    try:
+        # Rename local file to store in blob
+        #upload_file_path = os.rename(local_file_path, blob_storage_url)
+
+        blob_service_client = BlobServiceClient.from_connection_string(CONNECTION_STR)
+        # Create a blob client using the local file name as the name for the blob
+        blob_client = blob_service_client.get_blob_client(container=CONTAINER_NAME, blob=blob_storage_url)
+        
+        print("\nUploading to Azure Storage as blob:\n\t" + blob_storage_url)
+        
+        # Upload the file
+        with open(local_file_path, "rb") as data:
+            blob_client.upload_blob(data=data)
+    
+    except Exception as ex:
+        print('Exception:')
+        print(ex)
+        
+
 def getid():
     '''
     execute the mysql getid stored procedure to get the next unique id
@@ -173,6 +217,7 @@ def getid():
         
     return newid
 
+
 def get_dataset_files():
     '''
     Returns
@@ -183,6 +228,7 @@ def get_dataset_files():
     file_path = input("Enter data directory path: ")
     
     return file_path
+
 
 def parent_file(new_id, data_name):
     '''
@@ -210,6 +256,7 @@ def parent_file(new_id, data_name):
     description = input("Describe the dataset: ")
     
     return (parent_id, data_set_name, url, audio_info, verification_method, description)
+
 
 def connect():
     '''
