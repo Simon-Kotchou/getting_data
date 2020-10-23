@@ -16,7 +16,7 @@ from azure.storage.blob import BlobServiceClient, BlobClient, ContainerClient, _
 # GLOBAL VARS
 
 CONTAINER_NAME = "audiodata"
-CONNECTION_STR = "DefaultEndpointsProtocol=https;AccountName=ahgeneralstorage;AccountKey=Qskw5VS7/fmFv1UTu77h42ufFGsanvoiXBHRzvuimjA1o2cS9bmvdy7ZK4zfzFUY/fI2lmUJ7p9maIEGj21oBg==;EndpointSuffix=core.windows.net"
+CONNECTION_STR = "" # FILL IN
 
 #############################
 
@@ -307,10 +307,10 @@ def connect():
     global conn
     conn = None
     try:
-        conn = mysql.connector.connect(host='dev1.audiblehealth.ai',
-                                       database='audible',
-                                       user='datascience',
-                                       password='n5NfCjJY3g9GzY84eupWbZrU')
+        conn = mysql.connector.connect(host='',
+                                       database='',
+                                       user='',
+                                       password='')
         if conn.is_connected():
             print('Connected to MySQL database')
             global cursor
