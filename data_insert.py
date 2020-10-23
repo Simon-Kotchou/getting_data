@@ -20,7 +20,7 @@ from azure.storage.blob import BlobServiceClient, BlobClient, ContainerClient, _
 # GLOBAL VARS
 
 CONTAINER_NAME = "audiodata"
-CONNECTION_STR = "DefaultEndpointsProtocol=https;AccountName=ahgeneralstorage;AccountKey=Qskw5VS7/fmFv1UTu77h42ufFGsanvoiXBHRzvuimjA1o2cS9bmvdy7ZK4zfzFUY/fI2lmUJ7p9maIEGj21oBg==;EndpointSuffix=core.windows.net"
+CONNECTION_STR = "" # FILL IN
 
 #############################
 
