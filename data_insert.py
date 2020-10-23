@@ -9,11 +9,7 @@ import mysql.connector
 import os
 import audio_metadata
 from mysql.connector import Error
-import os, uuid
-from azure.storage.blob import BlobServiceClient, BlobClient, ContainerClient, __version__
-
-
-import os, uuid
+import uuid
 from azure.storage.blob import BlobServiceClient, BlobClient, ContainerClient, __version__
 
 #############################
@@ -30,6 +26,12 @@ def main():
     main processing loop
     first get/load datasource
     then loop through files, upload to az blob & insert sound_file record
+    
+    Returns
+    -------
+    bool
+        return bool when finished.
+
     '''
 
     if connect():
@@ -38,10 +40,10 @@ def main():
         return False
         
         
-    # get the datasourceid, load new one if necessary
-    datasourceid=0
+    # get the data_source_id, load new one if necessary
+    data_source_id=0
     
-    while datasourceid == 0:
+    while data_source_id == 0:
         n = 0
         s = input("Enter data source id, or 0 to load a new data source, or q to quit: ")
         if s == "q":
@@ -53,32 +55,30 @@ def main():
                 vals=(n,)
                 cursor.execute(sql, vals)
                 if cursor.rowcount:
-                    datasourceid=n
-                    datasourcename=cursor.fetchone()[0]
+                    data_source_id=n
+                    data_source_name=cursor.fetchone()[0]
                 else:
                     print("Data source with id ",n," was not found")
             else:
-                datasourcename = input("Enter new data source name (must be unique): ")
+                data_source_name = input("Enter new data source name (must be unique): ")
                 sql="select id from data_source where name=%s"
-                vals=(datasourcename,)
+                vals=(data_source_name,)
                 cursor.execute(sql, vals)
                 if cursor.rowcount > 0:
-                    print("we already have a data source named " + datasourcename + ", its id is " + str(cursor.fetchone()[0]))
-                    datasourcename=""
+                    print("we already have a data source named " + data_source_name + ", its id is " + str(cursor.fetchone()[0]))
+                    data_source_name=""
                 else:
-                    datasourceid=getid()
-                    #here we could also input any other info we want to load about the datasource and add that to the insert
-                    parent_information = parent_file(datasourceid, datasourcename)
+                    # Here we could also input any other info we want to load about the datasource and add that to the insert
+                    data_source_id=get_unique_id()
+                    parent_information = parent_file(data_source_id, data_source_name)
                     sql="insert into data_source (`id`, `name`, `location`, `audio_characteristics`, `verification_method`,`description`) values (%s, %s, %s, %s, %s, %s);"
                     cursor.execute(sql, parent_information)
                     conn.commit()
         else:
             print(s," is not a valid number")
 
-        # Now we will begin to gather file data, first the file location/path then metadata then insert into database and azure
-        # 1. 
     file_directory = get_dataset_files()
-    audio_files_loop(file_directory, datasourceid)
+    audio_files_loop(file_directory, data_source_id)
     
     conn.commit()
     print("Data Committed to DB successfully!")
@@ -123,9 +123,10 @@ def audio_files_loop(file_directory, parent_id=-1):
 def is_cough():
     '''
     This function takes in user input to determine if all files are cough/covid/strong/weak labeled.
+    
     Returns
     -------
-    cough : int
+     cough : int
         0 == not cough data, 1 == cough data, NULL = unkown
     is_covid : int
         0 == not covid data, 1 == covid data, NULL = unknown
@@ -133,12 +134,13 @@ def is_cough():
         0 == not strong label data, 1 == strong label data
 
     '''
+
     cough = 0
     is_covid = 0
-    is_strong = 0
+    is_strong = None
     
     # user_in = input("Are all the files in the directory the same classification? IE ALL strong labeled, ALL cough, etc.  ")
-    user_in = input("Is this a strong labeled data set IF UNKNOWN -> u? (y/n/u) ")
+    user_in = input("Is this a strong labeled data set? (y/n) ")
     
     if user_in.lower() == 'y':
         is_strong = 1
@@ -147,32 +149,48 @@ def is_cough():
     
     if user_in.lower() == 'y':
         cough = 1
+        covid_cough = input("Are the coughs covid POSITIVE IF UNKNOWN -> u? (y/n/u) ")
+        if covid_cough.lower() == 'y':
+            is_covid = 1
+        elif user_in.lower() == 'u':
+            is_covid = None
     elif user_in.lower() == 'u':
         cough = None
 
-    covid_cough = input("Are the coughs covid POSITIVE? (y/n) ")
-    if covid_cough.lower() == 'y':
-        is_covid = 1
-    elif user_in.lower() == 'u':
-        is_covid = None
         
     return (cough, is_covid, is_strong)
 
 
-def collect_file_meta_data(filename, parent_id=-1):
+def collect_file_meta_data(file_name, parent_id=-1):
   '''
-  Function - takes in a audio file and computes necesary metadata
-  Inputs: 
-    file - type: string
-  Outputs:
-    all_file_meta_df - type: pandas dataframe
-  '''
-  file_id = getid()
-  file_extension = os.path.splitext(filename)
+    takes in a audio file and computes necesary metadata
+
+    Parameters
+    ----------
+    file_name : String
+        path to the specified file
+    parent_id : INT, optional
+        This should be genreated in previous steps/known. The default is -1 showing an error.
+
+    Returns
+    -------
+    file_id : INT
+    parent_id : INT
+    size_bytes : FLOAT
+    file_duration : FLOAT
+    checksum : FLOAT
+    blob_storage_url : STRING
+        Location of file in Blob
+    sample_rate : FLOAT
+
+    '''
+
+  file_id = get_unique_id()
+  file_extension = os.path.splitext(file_name)
   blob_storage_url = str(str(parent_id) + "/" + str(file_id) + file_extension[1])
 
   # Using the audio_metadata import
-  metadata = audio_metadata.load(filename)
+  metadata = audio_metadata.load(file_name)
 
   # Store indiviual file data into dataframe
   size_bytes = metadata['filesize']
@@ -185,11 +203,22 @@ def collect_file_meta_data(filename, parent_id=-1):
 
 
 def store_in_blob(local_file_path, blob_storage_url):
-    
+    '''
+        This function stores the files into the blob with their proper blob url
+    Parameters
+    ----------
+    local_file_path : String
+        Location of local file to be loaded
+    blob_storage_url : String
+        Blob location to be stored, generated in collect_file_meta_data
+
+    Returns
+    -------
+    None.
+
+    '''
     try:
         # Rename local file to store in blob
-        #upload_file_path = os.rename(local_file_path, blob_storage_url)
-
         blob_service_client = BlobServiceClient.from_connection_string(CONNECTION_STR)
         # Create a blob client using the local file name as the name for the blob
         blob_client = blob_service_client.get_blob_client(container=CONTAINER_NAME, blob=blob_storage_url)
@@ -205,26 +234,32 @@ def store_in_blob(local_file_path, blob_storage_url):
         print(ex)
         
 
-def getid():
+def get_unique_id():
     '''
-    execute the mysql getid stored procedure to get the next unique id
-    returns int
+    execute the mysql get_unique_id stored procedure to get the next unique id
+    Returns
+    -------
+    new_id : INT
+        generated id
+
     '''
 
     cursor.callproc('GetId')
     for result in cursor.stored_results():
-        newid=result.fetchone()[0]
+        new_id=result.fetchone()[0]
         
-    return newid
+    return new_id
 
 
 def get_dataset_files():
     '''
+    Function returns the user input file path
     Returns
     -------
     file_path : string
         prompts user for file path
     '''
+    
     file_path = input("Enter data directory path: ")
     
     return file_path
@@ -261,7 +296,13 @@ def parent_file(new_id, data_name):
 def connect():
     '''
     connect to the db, open a buffered cursor
+    Returns
+    -------
+    bool
+        Tells user if funtion connected to DB successfully
+
     '''
+
 
     global conn
     conn = None
@@ -285,8 +326,12 @@ def connect():
         
 def finish():
     '''
-    things to do afterwards
-    do we want to do any logging?
+    Closes DB connection
+    
+    Returns
+    -------
+    None.
+
     '''
     
     conn.close()
