@@ -266,10 +266,10 @@ def connect():
     global conn
     conn = None
     try:
-        conn = mysql.connector.connect(host='dev1.audiblehealth.ai',
-                                       database='audible',
-                                       user='datascience',
-                                       password='n5NfCjJY3g9GzY84eupWbZrU')
+        conn = mysql.connector.connect(host='',
+                                       database='',
+                                       user='',
+                                       password='')
         if conn.is_connected():
             print('Connected to MySQL database')
             global cursor
